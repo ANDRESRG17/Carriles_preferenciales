@@ -144,7 +144,14 @@ class CarrilPreferencialDashboard {
         document.getElementById('dateToFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dayFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dayTypeFilter').addEventListener('change', () => this.applyFilters());
-        document.getElementById('carrilFilter').addEventListener('change', () => this.applyFilters());
+        
+        // Filtro de corredor con manejo especial para filtros dependientes
+        document.getElementById('carrilFilter').addEventListener('change', () => {
+            console.log('Corredor cambiado, actualizando filtros dependientes...');
+            this.updateDependentFilters();
+            this.applyFilters();
+        });
+        
         document.getElementById('desdeFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('hastaFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('sentidoFilter').addEventListener('change', () => this.applyFilters());
@@ -218,7 +225,75 @@ class CarrilPreferencialDashboard {
             hastaFilter.appendChild(option);
         });
 
+        // Poblar filtro de sentidos
+        const sentidos = [...new Set(this.data.map(item => item.sentido))].filter(s => s && s.trim() !== '').sort();
+        console.log('Sentidos encontrados:', sentidos);
+        const sentidoFilter = document.getElementById('sentidoFilter');
+        sentidos.forEach(sentido => {
+            const option = document.createElement('option');
+            option.value = sentido;
+            option.textContent = sentido;
+            sentidoFilter.appendChild(option);
+        });
+
         console.log('Filtros poblados correctamente');
+    }
+
+    updateDependentFilters() {
+        console.log('Actualizando filtros dependientes...');
+        
+        // Obtener el corredor seleccionado
+        const carrilSeleccionado = document.getElementById('carrilFilter').value;
+        
+        if (carrilSeleccionado) {
+            // Filtrar datos solo para el corredor seleccionado
+            const datosCarril = this.data.filter(item => item.carril === carrilSeleccionado);
+            console.log(`Datos para corredor ${carrilSeleccionado}:`, datosCarril.length);
+            
+            // Actualizar filtro de puntos desde
+            const desdePuntos = [...new Set(datosCarril.map(item => item.desde))].filter(d => d && d.trim() !== '').sort();
+            console.log('Puntos desde para este corredor:', desdePuntos);
+            this.updateFilterOptions('desdeFilter', desdePuntos, 'Todos los puntos');
+            
+            // Actualizar filtro de puntos hasta
+            const hastaPuntos = [...new Set(datosCarril.map(item => item.hasta))].filter(h => h && h.trim() !== '').sort();
+            console.log('Puntos hasta para este corredor:', hastaPuntos);
+            this.updateFilterOptions('hastaFilter', hastaPuntos, 'Todos los puntos');
+            
+            // Actualizar filtro de sentido
+            const sentidos = [...new Set(datosCarril.map(item => item.sentido))].filter(s => s && s.trim() !== '').sort();
+            console.log('Sentidos para este corredor:', sentidos);
+            this.updateFilterOptions('sentidoFilter', sentidos, 'Todos los sentidos');
+        } else {
+            // Si no hay corredor seleccionado, mostrar todas las opciones
+            this.populateFilters();
+        }
+    }
+
+    updateFilterOptions(filterId, options, defaultText) {
+        const filter = document.getElementById(filterId);
+        if (!filter) return;
+        
+        // Guardar el valor actual si existe
+        const currentValue = filter.value;
+        
+        // Limpiar opciones
+        filter.innerHTML = `<option value="">${defaultText}</option>`;
+        
+        // Agregar nuevas opciones
+        options.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option;
+            optionElement.textContent = option;
+            filter.appendChild(optionElement);
+        });
+        
+        // Restaurar valor si aún existe en las nuevas opciones
+        if (currentValue && options.includes(currentValue)) {
+            filter.value = currentValue;
+        }
+        
+        console.log(`Filtro ${filterId} actualizado con ${options.length} opciones`);
     }
 
     clearFilters() {
@@ -238,10 +313,16 @@ class CarrilPreferencialDashboard {
         const hastaFilter = document.getElementById('hastaFilter');
         hastaFilter.innerHTML = '<option value="">Todos los puntos</option>';
         
+        // Limpiar filtro de sentidos
+        const sentidoFilter = document.getElementById('sentidoFilter');
+        sentidoFilter.innerHTML = '<option value="">Todos los sentidos</option>';
+        
         console.log('Filtros limpiados');
     }
 
     applyFilters() {
+        console.log('Aplicando filtros...');
+        
         const yearFilter = document.getElementById('yearFilter').value;
         const dateFromFilter = document.getElementById('dateFromFilter').value;
         const dateToFilter = document.getElementById('dateToFilter').value;
@@ -253,27 +334,44 @@ class CarrilPreferencialDashboard {
         const sentidoFilter = document.getElementById('sentidoFilter').value;
         const hourFilter = document.getElementById('hourFilter').value;
 
-        this.filteredData = this.data.filter(item => {
-            const yearMatch = !yearFilter || new Date(item.fecha).getFullYear() == yearFilter;
-            const dateFromMatch = !dateFromFilter || item.fecha >= dateFromFilter;
-            const dateToMatch = !dateToFilter || item.fecha <= dateToFilter;
-            const dayMatch = !dayFilter || item.dia === dayFilter;
-            const dayTypeMatch = !dayTypeFilter || item.tipoDia === dayTypeFilter;
-            const carrilMatch = !carrilFilter || item.carril === carrilFilter;
-            const desdeMatch = !desdeFilter || item.desde === desdeFilter;
-            const hastaMatch = !hastaFilter || item.hasta === hastaFilter;
-            const sentidoMatch = !sentidoFilter || item.sentido === sentidoFilter;
-            const hourMatch = !hourFilter || item.hora.startsWith(hourFilter + ':');
-
-            return yearMatch && dateFromMatch && dateToMatch && dayMatch && dayTypeMatch && 
-                   carrilMatch && desdeMatch && hastaMatch && sentidoMatch && hourMatch;
+        console.log('Valores de filtros:', {
+            yearFilter, dateFromFilter, dateToFilter, dayFilter, dayTypeFilter,
+            carrilFilter, desdeFilter, hastaFilter, sentidoFilter, hourFilter
         });
 
+        this.filteredData = this.data.filter(item => {
+            try {
+                const yearMatch = !yearFilter || new Date(item.fecha).getFullYear() == yearFilter;
+                const dateFromMatch = !dateFromFilter || item.fecha >= dateFromFilter;
+                const dateToMatch = !dateToFilter || item.fecha <= dateToFilter;
+                const dayMatch = !dayFilter || item.dia === dayFilter;
+                const dayTypeMatch = !dayTypeFilter || item.tipoDia === dayTypeFilter;
+                const carrilMatch = !carrilFilter || item.carril === carrilFilter;
+                const desdeMatch = !desdeFilter || item.desde === desdeFilter;
+                const hastaMatch = !hastaFilter || item.hasta === hastaFilter;
+                const sentidoMatch = !sentidoFilter || item.sentido === sentidoFilter;
+                const hourMatch = !hourFilter || item.hora.startsWith(hourFilter + ':');
+
+                return yearMatch && dateFromMatch && dateToMatch && dayMatch && dayTypeMatch && 
+                       carrilMatch && desdeMatch && hastaMatch && sentidoMatch && hourMatch;
+            } catch (error) {
+                console.error('Error aplicando filtro a item:', item, error);
+                return false;
+            }
+        });
+
+        console.log(`Datos filtrados: ${this.filteredData.length} de ${this.data.length}`);
+        
+        // Actualizar filtros dependientes
+        this.updateDependentFilters();
+        
         this.updateStats();
         this.updateCharts();
     }
 
     resetFilters() {
+        console.log('Reseteando todos los filtros...');
+        
         document.getElementById('yearFilter').value = '';
         document.getElementById('dateFromFilter').value = '';
         document.getElementById('dateToFilter').value = '';
@@ -285,7 +383,12 @@ class CarrilPreferencialDashboard {
         document.getElementById('sentidoFilter').value = '';
         document.getElementById('hourFilter').value = '';
         
+        // Restaurar todos los filtros con todas las opciones
+        this.populateFilters();
+        
         this.filteredData = [...this.data];
+        console.log('Filtros reseteados, datos restaurados:', this.filteredData.length);
+        
         this.updateStats();
         this.updateCharts();
     }
