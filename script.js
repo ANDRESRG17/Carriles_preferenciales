@@ -3,6 +3,10 @@ class CarrilPreferencialDashboard {
         this.data = [];
         this.filteredData = [];
         this.charts = {};
+        this.map = null;
+        this.mapSegments = [];
+        this.mapLayers = {};
+        this.geojsonData = null;
         
         this.init();
     }
@@ -23,10 +27,19 @@ class CarrilPreferencialDashboard {
             this.createCharts();
             console.log('Gráficas creadas');
             
+            // Crear mapa
+            this.createMap();
+            console.log('Mapa creado');
+            
+            // Cargar datos del GeoJSON
+            await this.loadGeoJSON();
+            console.log('GeoJSON cargado');
+            
             // Poblar filtros y actualizar
             this.populateFilters();
             this.updateStats();
             this.updateCharts();
+            this.updateMap();
             
             console.log('Dashboard inicializado completamente');
         } catch (error) {
@@ -83,6 +96,7 @@ class CarrilPreferencialDashboard {
                 this.populateFilters();
                 this.updateStats();
                 this.updateCharts();
+                this.updateMap();
                 
                 this.showMessage('Datos de prueba cargados correctamente. Usa los filtros para ver las gráficas.');
             } else {
@@ -367,6 +381,7 @@ class CarrilPreferencialDashboard {
         
         this.updateStats();
         this.updateCharts();
+        this.updateMap();
     }
 
     resetFilters() {
@@ -391,6 +406,7 @@ class CarrilPreferencialDashboard {
         
         this.updateStats();
         this.updateCharts();
+        this.updateMap();
     }
 
     updateStats() {
@@ -417,6 +433,79 @@ class CarrilPreferencialDashboard {
             console.error('Error creando gráficas:', error);
         }
     }
+
+    createMap() {
+        console.log('Creando mapa...');
+        
+        try {
+            // Crear mapa centrado en Bogotá
+            this.map = L.map('map').setView([4.7110, -74.0721], 12);
+            
+            // Agregar capa base de OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(this.map);
+
+            // Agregar capa de satélite como opción
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri',
+                maxZoom: 18
+            });
+
+            // Control de capas base
+            const baseMaps = {
+                "Mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                "Satélite": satelliteLayer
+            };
+
+            L.control.layers(baseMaps).addTo(this.map);
+
+            // Crear grupos de capas para diferentes direcciones
+            this.mapLayers.ns = L.layerGroup();
+            this.mapLayers.ew = L.layerGroup();
+            this.mapLayers.mixed = L.layerGroup();
+
+            // Agregar capas al mapa
+            this.mapLayers.ns.addTo(this.map);
+            this.mapLayers.ew.addTo(this.map);
+            this.mapLayers.mixed.addTo(this.map);
+
+                    console.log('Mapa creado exitosamente');
+    } catch (error) {
+        console.error('Error creando mapa:', error);
+    }
+}
+
+async loadGeoJSON() {
+    try {
+        console.log('Cargando datos del GeoJSON...');
+        const response = await fetch('carriles_preferenciales.geojson');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        this.geojsonData = await response.json();
+        console.log(`GeoJSON cargado exitosamente: ${this.geojsonData.features.length} features`);
+        
+        // Mostrar información de los primeros features
+        if (this.geojsonData.features.length > 0) {
+            const firstFeature = this.geojsonData.features[0];
+            console.log('Primer feature:', {
+                name: firstFeature.properties.Name,
+                sentido: firstFeature.properties.sentido,
+                desde: firstFeature.properties.desde,
+                hasta: firstFeature.properties.hasta,
+                coordinates: firstFeature.geometry.coordinates.length
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando GeoJSON:', error);
+        console.log('El mapa usará coordenadas simuladas');
+        this.geojsonData = null;
+    }
+}
 
     createTimeSeriesChart() {
         const ctx = document.getElementById('timeSeriesChart').getContext('2d');
@@ -529,6 +618,81 @@ class CarrilPreferencialDashboard {
                 }
             }
         });
+    }
+
+    createHistogramChart() {
+        console.log('Creando histograma...');
+        const canvas = document.getElementById('histogramChart');
+        if (!canvas) {
+            console.error('No se encontró el canvas del histograma');
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        console.log('Contexto del canvas obtenido:', ctx);
+        
+        this.charts.histogram = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20,
+                        bottom: 20
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Frecuencia',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            maxTicksLimit: 8
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Rango de Congestión',
+                            font: {
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+        
+        console.log('Histograma creado:', this.charts.histogram);
     }
 
     updateCharts() {
@@ -682,14 +846,11 @@ class CarrilPreferencialDashboard {
         // Crear bins
         const bins = Array(binCount).fill(0);
         const labels = [];
-        const binCenters = [];
 
         for (let i = 0; i < binCount; i++) {
             const binStart = min + (i * binSize);
             const binEnd = min + ((i + 1) * binSize);
-            const binCenter = (binStart + binEnd) / 2;
             labels.push(`${Math.round(binStart)}-${Math.round(binEnd)}`);
-            binCenters.push(binCenter);
         }
 
         // Contar valores en cada bin
@@ -806,81 +967,6 @@ class CarrilPreferencialDashboard {
         console.log('Histograma actualizado correctamente');
     }
 
-    createHistogramChart() {
-        console.log('Creando histograma...');
-        const canvas = document.getElementById('histogramChart');
-        if (!canvas) {
-            console.error('No se encontró el canvas del histograma');
-            return;
-        }
-        
-        const ctx = canvas.getContext('2d');
-        console.log('Contexto del canvas obtenido:', ctx);
-        
-        this.charts.histogram = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: [],
-                datasets: []
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: {
-                    padding: {
-                        top: 20,
-                        bottom: 20
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Frecuencia',
-                            font: {
-                                weight: 'bold'
-                            }
-                        },
-                        ticks: {
-                            maxTicksLimit: 8
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Rango de Congestión',
-                            font: {
-                                weight: 'bold'
-                            }
-                        }
-                    }
-                },
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
-                }
-            }
-        });
-        
-        console.log('Histograma creado:', this.charts.histogram);
-    }
-
     calculatePercentile(sortedArray, percentile) {
         const index = (percentile / 100) * (sortedArray.length - 1);
         if (Number.isInteger(index)) {
@@ -891,6 +977,230 @@ class CarrilPreferencialDashboard {
             const weight = index - lower;
             return sortedArray[lower] * (1 - weight) + sortedArray[upper] * weight;
         }
+    }
+
+    updateMap() {
+        if (!this.map || !this.filteredData || this.filteredData.length === 0) {
+            console.log('No hay datos para actualizar el mapa');
+            return;
+        }
+
+        console.log('Actualizando mapa con', this.filteredData.length, 'registros filtrados');
+
+        // Limpiar capas existentes
+        Object.values(this.mapLayers).forEach(layer => {
+            layer.clearLayers();
+        });
+
+        // Crear segmentos del mapa basados en los datos filtrados
+        this.createMapSegments();
+
+        // Actualizar información del mapa
+        this.updateMapInfo();
+    }
+
+    createMapSegments() {
+        // Si no tenemos datos del GeoJSON, usar el método anterior
+        if (!this.geojsonData || !this.geojsonData.features) {
+            this.createMapSegmentsFromCSV();
+            return;
+        }
+
+        console.log('Creando segmentos del mapa desde GeoJSON real...');
+        
+        // Agrupar datos por carril y dirección
+        const segmentsByCorridor = {};
+        
+        this.filteredData.forEach(item => {
+            const key = `${item.carril}_${item.sentido}`;
+            if (!segmentsByCorridor[key]) {
+                segmentsByCorridor[key] = {
+                    carril: item.carril,
+                    sentido: item.sentido,
+                    desde: item.desde,
+                    hasta: item.hasta,
+                    count: 0,
+                    avgCongestion: 0,
+                    totalCongestion: 0
+                };
+            }
+            segmentsByCorridor[key].count++;
+            segmentsByCorridor[key].totalCongestion += item.congestion;
+        });
+
+        // Buscar en el GeoJSON los segmentos que coincidan con los datos filtrados
+        this.geojsonData.features.forEach(feature => {
+            const props = feature.properties;
+            const key = `${props.Name}_${props.sentido}`;
+            
+            // Buscar si este segmento del GeoJSON coincide con algún dato filtrado
+            const matchingSegment = Object.values(segmentsByCorridor).find(segment => 
+                segment.carril === props.Name && segment.sentido === props.sentido
+            );
+            
+            if (matchingSegment) {
+                // Usar las coordenadas reales del GeoJSON
+                const coordinates = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]); // [lat, lng]
+                
+                // Determinar dirección para el color
+                let direction = 'mixed';
+                if (props.sentido === 'NS') direction = 'ns';
+                else if (props.sentido === 'EW') direction = 'ew';
+
+                // Crear línea en el mapa
+                const polyline = L.polyline(coordinates, {
+                    color: this.getSegmentColor(direction),
+                    weight: 6,
+                    opacity: 0.8
+                });
+
+                // Agregar popup con información
+                const popup = this.createSegmentPopup({
+                    ...matchingSegment,
+                    desde: props.desde,
+                    hasta: props.hasta,
+                    length: props.Shape_Leng
+                });
+                polyline.bindPopup(popup);
+
+                // Agregar a la capa correspondiente
+                this.mapLayers[direction].addLayer(polyline);
+            }
+        });
+    }
+
+    createMapSegmentsFromCSV() {
+        // Método anterior para cuando no hay GeoJSON
+        console.log('Usando coordenadas simuladas (no hay GeoJSON)...');
+        
+        // Agrupar datos por carril y dirección
+        const segmentsByCorridor = {};
+        
+        this.filteredData.forEach(item => {
+            const key = `${item.carril}_${item.sentido}`;
+            if (!segmentsByCorridor[key]) {
+                segmentsByCorridor[key] = {
+                    carril: item.carril,
+                    sentido: item.sentido,
+                    desde: item.desde,
+                    hasta: item.hasta,
+                    count: 0,
+                    avgCongestion: 0,
+                    totalCongestion: 0
+                };
+            }
+            segmentsByCorridor[key].count++;
+            segmentsByCorridor[key].totalCongestion += item.congestion;
+        });
+
+        // Calcular promedios y crear segmentos
+        Object.values(segmentsByCorridor).forEach(segment => {
+            segment.avgCongestion = segment.totalCongestion / segment.count;
+            
+            // Crear coordenadas simuladas basadas en el carril
+            const coordinates = this.generateSegmentCoordinates(segment);
+            
+            // Determinar dirección para el color
+            let direction = 'mixed';
+            if (segment.sentido === 'NS') direction = 'ns';
+            else if (segment.sentido === 'EW') direction = 'ew';
+
+            // Crear línea en el mapa
+            const polyline = L.polyline(coordinates, {
+                color: this.getSegmentColor(direction),
+                weight: 6,
+                opacity: 0.8
+            });
+
+            // Agregar popup con información
+            const popup = this.createSegmentPopup(segment);
+            polyline.bindPopup(popup);
+
+            // Agregar a la capa correspondiente
+            this.mapLayers[direction].addLayer(polyline);
+        });
+    }
+
+    generateSegmentCoordinates(segment) {
+        // Coordenadas simuladas basadas en el carril
+        // En una implementación real, estas vendrían del shapefile
+        const baseLat = 4.7110;
+        const baseLng = -74.0721;
+        
+        let coordinates = [];
+        
+        if (segment.sentido === 'NS') {
+            // Línea Norte-Sur
+            coordinates = [
+                [baseLat - 0.01, baseLng],
+                [baseLat, baseLng],
+                [baseLat + 0.01, baseLng]
+            ];
+        } else if (segment.sentido === 'EW') {
+            // Línea Este-Oeste
+            coordinates = [
+                [baseLat, baseLng - 0.01],
+                [baseLat, baseLng],
+                [baseLat, baseLng + 0.01]
+            ];
+        } else {
+            // Línea diagonal
+            coordinates = [
+                [baseLat - 0.005, baseLng - 0.005],
+                [baseLat, baseLng],
+                [baseLat + 0.005, baseLng + 0.005]
+            ];
+        }
+
+        return coordinates;
+    }
+
+    getSegmentColor(direction) {
+        switch (direction) {
+            case 'ns': return '#e53e3e'; // Rojo para Norte-Sur
+            case 'ew': return '#3182ce'; // Azul para Este-Oeste
+            default: return '#38a169';   // Verde para mixto
+        }
+    }
+
+    createSegmentPopup(segment) {
+        return `
+            <div style="min-width: 200px;">
+                <h3 style="margin: 0 0 10px 0; color: #2d3748;">${segment.carril}</h3>
+                <p><strong>Sentido:</strong> ${segment.sentido}</p>
+                <p><strong>Desde:</strong> ${segment.desde}</p>
+                <p><strong>Hasta:</strong> ${segment.hasta}</p>
+                <p><strong>Registros:</strong> ${segment.count}</p>
+                <p><strong>Congestión Promedio:</strong> ${segment.avgCongestion.toFixed(1)}</p>
+                ${segment.length ? `<p><strong>Longitud:</strong> ${segment.length.toFixed(3)} km</p>` : ''}
+            </div>
+        `;
+    }
+
+    updateMapInfo() {
+        if (!this.filteredData || this.filteredData.length === 0) return;
+
+        const uniqueCorridors = [...new Set(this.filteredData.map(item => item.carril))];
+        
+        // Calcular longitud total real si tenemos GeoJSON
+        let totalLength = 0;
+        if (this.geojsonData && this.geojsonData.features) {
+            const matchingFeatures = this.geojsonData.features.filter(feature => {
+                const props = feature.properties;
+                return uniqueCorridors.includes(props.Name);
+            });
+            
+            totalLength = matchingFeatures.reduce((sum, feature) => {
+                return sum + (feature.properties.Shape_Leng || 0);
+            }, 0);
+        } else {
+            // Longitud simulada si no hay GeoJSON
+            totalLength = uniqueCorridors.length * 5;
+        }
+
+        document.getElementById('map-segments-count').textContent = this.filteredData.length;
+        document.getElementById('map-total-length').textContent = totalLength.toFixed(3);
+        document.getElementById('map-corridors-count').textContent = uniqueCorridors.length;
     }
 
     showError(message) {

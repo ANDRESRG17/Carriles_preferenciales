@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
     <div class="container">
@@ -134,11 +135,50 @@
                 </div>
             </div>
 
+            <!-- Mapa de Carriles Preferenciales -->
+            <div class="map-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-route"></i> Mapa de Carriles Preferenciales</h2>
+                    <p>Visualización geográfica de la red de carriles con filtros interactivos</p>
+                </div>
+                
+                <div class="map-container">
+                    <div id="map"></div>
+                    
+                    <!-- Panel de información del mapa -->
+                    <div class="map-info-panel">
+                        <h3><i class="fas fa-info-circle"></i> Información del Mapa</h3>
+                        <div class="map-info-content">
+                            <p><strong>Segmentos visibles:</strong> <span id="map-segments-count">-</span></p>
+                            <p><strong>Longitud total:</strong> <span id="map-total-length">-</span> km</p>
+                            <p><strong>Corredores activos:</strong> <span id="map-corridors-count">-</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Leyenda del mapa -->
+                    <div class="map-legend">
+                        <h3><i class="fas fa-map"></i> Leyenda</h3>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #e53e3e;"></div>
+                            <span class="legend-text">Norte-Sur</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #3182ce;"></div>
+                            <span class="legend-text">Este-Oeste</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #38a169;"></div>
+                            <span class="legend-text">Mixto</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
