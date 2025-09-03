@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero Carriles Preferenciales - Bogotá</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-road"></i> Carriles Preferenciales Bogotá</h1>
+                <p>Análisis y visualización de datos de tráfico en carriles preferenciales</p>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="yearFilter">Año:</label>
+                    <select id="yearFilter" class="filter-input">
+                        <option value="">Todos los años</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="dateFromFilter">Fecha Desde:</label>
+                    <input type="date" id="dateFromFilter" class="filter-input">
+                </div>
+                <div class="filter-group">
+                    <label for="dateToFilter">Fecha Hasta:</label>
+                    <input type="date" id="dateToFilter" class="filter-input">
+                </div>
+                <div class="filter-group">
+                    <label for="dayFilter">Día de la Semana:</label>
+                    <select id="dayFilter" class="filter-input">
+                        <option value="">Todos los días</option>
+                        <option value="Lunes">Lunes</option>
+                        <option value="Martes">Martes</option>
+                        <option value="Miércoles">Miércoles</option>
+                        <option value="Jueves">Jueves</option>
+                        <option value="Viernes">Viernes</option>
+                        <option value="Sábado">Sábado</option>
+                        <option value="Domingo">Domingo</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="dayTypeFilter">Tipo de Día:</label>
+                    <select id="dayTypeFilter" class="filter-input">
+                        <option value="">Todos los tipos</option>
+                        <option value="Hábil">Hábil</option>
+                        <option value="Festivo">Festivo</option>
+                        <option value="Sábado">Sábado</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="carrilFilter">Carril:</label>
+                    <select id="carrilFilter" class="filter-input">
+                        <option value="">Todos los carriles</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="desdeFilter">Desde:</label>
+                    <select id="desdeFilter" class="filter-input">
+                        <option value="">Todos los puntos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="hastaFilter">Hasta:</label>
+                    <select id="hastaFilter" class="filter-input">
+                        <option value="">Todos los puntos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="sentidoFilter">Sentido:</label>
+                    <select id="sentidoFilter" class="filter-input">
+                        <option value="">Todos los sentidos</option>
+                        <option value="NS">Norte-Sur</option>
+                        <option value="EW">Este-Oeste</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="hourFilter">Hora del Día:</label>
+                    <select id="hourFilter" class="filter-input">
+                        <option value="">Todas las horas</option>
+                        <option value="00">00:00 - 00:59</option>
+                        <option value="01">01:00 - 01:59</option>
+                        <option value="02">02:00 - 02:59</option>
+                        <option value="03">03:00 - 03:59</option>
+                        <option value="04">04:00 - 04:59</option>
+                        <option value="05">05:00 - 05:59</option>
+                        <option value="06">06:00 - 06:59</option>
+                        <option value="07">07:00 - 07:59</option>
+                        <option value="08">08:00 - 08:59</option>
+                        <option value="09">09:00 - 09:59</option>
+                        <option value="10">10:00 - 10:59</option>
+                        <option value="11">11:00 - 11:59</option>
+                        <option value="12">12:00 - 12:59</option>
+                        <option value="13">13:00 - 13:59</option>
+                        <option value="14">14:00 - 14:59</option>
+                        <option value="15">15:00 - 15:59</option>
+                        <option value="16">16:00 - 16:59</option>
+                        <option value="17">17:00 - 17:59</option>
+                        <option value="18">18:00 - 18:59</option>
+                        <option value="19">19:00 - 19:59</option>
+                        <option value="20">20:00 - 20:59</option>
+                        <option value="21">21:00 - 21:59</option>
+                        <option value="22">22:00 - 22:59</option>
+                        <option value="23">23:00 - 23:59</option>
+                    </select>
+                </div>
+                <button id="resetFilters" class="reset-btn">
+                    <i class="fas fa-undo"></i> Limpiar Filtros
+                </button>
+            </div>
+
+            <div class="stats-container">
+                <div class="chart-card histogram-full">
+                    <h3><i class="fas fa-chart-bar"></i> Distribución de Congestión con Estadísticas Descriptivas</h3>
+                    <canvas id="histogramChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-line"></i> Serie de Tiempo - Congestión Promedio por Mes</h3>
+                    <canvas id="timeSeriesChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar"></i> Perfil Horario - Congestión Promedio por Hora</h3>
+                    <canvas id="hourlyProfileChart"></canvas>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
