@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Carriles Preferenciales - Bogotá</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1000;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .map-container {
+            position: relative;
+            height: calc(100vh - 120px);
+            margin: 20px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 20px;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            min-width: 250px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group h3 {
+            color: #2d3748;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            display: block;
+            color: #4a5568;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .control-group select,
+        .control-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .legend h3 {
+            color: #2d3748;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-text {
+            color: #4a5568;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .info-panel h3 {
+            color: #2d3748;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-content {
+            color: #4a5568;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .loading p {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin: 20px;
+                min-width: auto;
+            }
+            
+            .map-container {
+                height: calc(100vh - 200px);
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-route"></i> Mapa de Carriles Preferenciales</h1>
+        <p>Visualización interactiva de la red de carriles preferenciales de Bogotá</p>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <!-- Panel de información -->
+        <div class="info-panel">
+            <h3><i class="fas fa-info-circle"></i> Información</h3>
+            <div class="info-content">
+                <p><strong>Total de segmentos:</strong> <span id="total-segments">-</span></p>
+                <p><strong>Longitud total:</strong> <span id="total-length">-</span> km</p>
+                <p><strong>Última actualización:</strong> 2025</p>
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div class="controls">
+            <div class="control-group">
+                <h3><i class="fas fa-filter"></i> Filtros</h3>
+                <label for="corridor-filter">Corredor:</label>
+                <select id="corridor-filter">
+                    <option value="">Todos los corredores</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="direction-filter">Dirección:</label>
+                <select id="direction-filter">
+                    <option value="">Todas las direcciones</option>
+                    <option value="Norte-Sur">Norte-Sur</option>
+                    <option value="Este-Oeste">Este-Oeste</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="status-filter">Estado:</label>
+                <select id="status-filter">
+                    <option value="">Todos los estados</option>
+                    <option value="Activo">Activo</option>
+                    <option value="En construcción">En construcción</option>
+                    <option value="Planificado">Planificado</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="legend">
+            <h3><i class="fas fa-map"></i> Leyenda</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e53e3e;"></div>
+                <span class="legend-text">Norte-Sur</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #3182ce;"></div>
+                <span class="legend-text">Este-Oeste</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #38a169;"></div>
+                <span class="legend-text">Mixto</span>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Cargando mapa...</p>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Script del mapa -->
+    <script>
+        class CarrilPreferencialMap {
+            constructor() {
+                this.map = null;
+                this.segments = [];
+                this.filteredSegments = [];
+                this.layers = {};
+                this.init();
+            }
+
+            async init() {
+                console.log('Inicializando mapa...');
+                this.createMap();
+                this.setupEventListeners();
+                await this.loadShapefileData();
+                this.hideLoading();
+            }
+
+            createMap() {
+                // Crear mapa centrado en Bogotá
+                this.map = L.map('map').setView([4.7110, -74.0721], 12);
+                
+                // Agregar capa base de OpenStreetMap
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(this.map);
+
+                // Agregar capa de satélite como opción
+                const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© Esri',
+                    maxZoom: 18
+                });
+
+                // Control de capas base
+                const baseMaps = {
+                    "Mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+                    "Satélite": satelliteLayer
+                };
+
+                L.control.layers(baseMaps).addTo(this.map);
+            }
+
+            setupEventListeners() {
+                // Filtros
+                document.getElementById('corridor-filter').addEventListener('change', () => this.applyFilters());
+                document.getElementById('direction-filter').addEventListener('change', () => this.applyFilters());
+                document.getElementById('status-filter').addEventListener('change', () => this.applyFilters());
+            }
+
+            async loadShapefileData() {
+                try {
+                    console.log('Cargando datos del shapefile...');
+                    
+                    // Por ahora usaremos datos de ejemplo
+                    // En una implementación real, necesitarías convertir el shapefile a GeoJSON
+                    this.segments = this.getSampleData();
+                    this.filteredSegments = [...this.segments];
+                    
+                    this.renderSegments();
+                    this.updateInfo();
+                    this.populateFilters();
+                    
+                    console.log('Datos cargados exitosamente');
+                } catch (error) {
+                    console.error('Error cargando datos:', error);
+                    this.showError('Error cargando los datos del mapa');
+                }
+            }
+
+            getSampleData() {
+                // Datos de ejemplo basados en la estructura típica de carriles preferenciales
+                return [
+                    {
+                        id: 1,
+                        name: "Av. Caracas",
+                        direction: "Norte-Sur",
+                        corridor: "Caracas",
+                        status: "Activo",
+                        length: 12.5,
+                        coordinates: [
+                            [4.7110, -74.0721],
+                            [4.7210, -74.0721],
+                            [4.7310, -74.0721],
+                            [4.7410, -74.0721]
+                        ]
+                    },
+                    {
+                        id: 2,
+                        name: "Av. 68",
+                        direction: "Este-Oeste",
+                        corridor: "68",
+                        status: "Activo",
+                        length: 8.3,
+                        coordinates: [
+                            [4.7110, -74.0821],
+                            [4.7110, -74.0721],
+                            [4.7110, -74.0621]
+                        ]
+                    },
+                    {
+                        id: 3,
+                        name: "Calle 80",
+                        direction: "Este-Oeste",
+                        corridor: "80",
+                        status: "Activo",
+                        length: 10.2,
+                        coordinates: [
+                            [4.7210, -74.0821],
+                            [4.7210, -74.0721],
+                            [4.7210, -74.0621]
+                        ]
+                    },
+                    {
+                        id: 4,
+                        name: "Av. Boyacá",
+                        direction: "Norte-Sur",
+                        corridor: "Boyacá",
+                        status: "En construcción",
+                        length: 15.7,
+                        coordinates: [
+                            [4.7010, -74.0721],
+                            [4.7110, -74.0721],
+                            [4.7210, -74.0721]
+                        ]
+                    }
+                ];
+            }
+
+            renderSegments() {
+                // Limpiar capas existentes
+                Object.values(this.layers).forEach(layer => {
+                    if (this.map.hasLayer(layer)) {
+                        this.map.removeLayer(layer);
+                    }
+                });
+                this.layers = {};
+
+                // Crear grupos de capas por dirección
+                this.layers.ns = L.layerGroup();
+                this.layers.ew = L.layerGroup();
+                this.layers.mixed = L.layerGroup();
+
+                this.filteredSegments.forEach(segment => {
+                    const polyline = L.polyline(segment.coordinates, {
+                        color: this.getSegmentColor(segment.direction),
+                        weight: 6,
+                        opacity: 0.8
+                    });
+
+                    // Agregar popup con información
+                    const popup = this.createSegmentPopup(segment);
+                    polyline.bindPopup(popup);
+
+                    // Agregar a la capa correspondiente
+                    if (segment.direction === 'Norte-Sur') {
+                        this.layers.ns.addLayer(polyline);
+                    } else if (segment.direction === 'Este-Oeste') {
+                        this.layers.ew.addLayer(polyline);
+                    } else {
+                        this.layers.mixed.addLayer(polyline);
+                    }
+                });
+
+                // Agregar capas al mapa
+                this.layers.ns.addTo(this.map);
+                this.layers.ew.addTo(this.map);
+                this.layers.mixed.addTo(this.map);
+            }
+
+            getSegmentColor(direction) {
+                switch (direction) {
+                    case 'Norte-Sur': return '#e53e3e';
+                    case 'Este-Oeste': return '#3182ce';
+                    default: return '#38a169';
+                }
+            }
+
+            createSegmentPopup(segment) {
+                return `
+                    <div style="min-width: 200px;">
+                        <h3 style="margin: 0 0 10px 0; color: #2d3748;">${segment.name}</h3>
+                        <p><strong>Corredor:</strong> ${segment.corridor}</p>
+                        <p><strong>Dirección:</strong> ${segment.direction}</p>
+                        <p><strong>Estado:</strong> ${segment.status}</p>
+                        <p><strong>Longitud:</strong> ${segment.length} km</p>
+                    </div>
+                `;
+            }
+
+            applyFilters() {
+                const corridorFilter = document.getElementById('corridor-filter').value;
+                const directionFilter = document.getElementById('direction-filter').value;
+                const statusFilter = document.getElementById('status-filter').value;
+
+                this.filteredSegments = this.segments.filter(segment => {
+                    const corridorMatch = !corridorFilter || segment.corridor === corridorFilter;
+                    const directionMatch = !directionFilter || segment.direction === directionFilter;
+                    const statusMatch = !statusFilter || segment.status === statusFilter;
+
+                    return corridorMatch && directionMatch && statusMatch;
+                });
+
+                this.renderSegments();
+                this.updateInfo();
+            }
+
+            populateFilters() {
+                const corridors = [...new Set(this.segments.map(s => s.corridor))].sort();
+                const corridorFilter = document.getElementById('corridor-filter');
+                
+                corridors.forEach(corridor => {
+                    const option = document.createElement('option');
+                    option.value = corridor;
+                    option.textContent = corridor;
+                    corridorFilter.appendChild(option);
+                });
+            }
+
+            updateInfo() {
+                const totalSegments = this.filteredSegments.length;
+                const totalLength = this.filteredSegments.reduce((sum, s) => sum + s.length, 0);
+                
+                document.getElementById('total-segments').textContent = totalSegments;
+                document.getElementById('total-length').textContent = totalLength.toFixed(1);
+            }
+
+            hideLoading() {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+
+            showError(message) {
+                console.error(message);
+                // Aquí podrías mostrar un mensaje de error en la UI
+            }
+        }
+
+        // Inicializar el mapa cuando se cargue la página
+        document.addEventListener('DOMContentLoaded', () => {
+            new CarrilPreferencialMap();
+        });
+    </script>
+</body>
+</html>
