@@ -3,165 +3,199 @@ class CarrilPreferencialDashboard {
         this.data = [];
         this.filteredData = [];
         this.charts = {};
-        this.map = null;
-        this.mapSegments = [];
-        this.mapLayers = {};
-        this.geojsonData = null;
         
         this.init();
     }
 
     async init() {
         console.log('Inicializando dashboard...');
+        console.log('Verificando datos de muestra antes de iniciar...');
+        console.log('window.SAMPLE_DATA existe:', !!window.SAMPLE_DATA);
+        console.log('window.SAMPLE_DATA.length:', window.SAMPLE_DATA ? window.SAMPLE_DATA.length : 'undefined');
         
         try {
-            // Configurar event listeners primero
             this.setupEventListeners();
-            console.log('Event listeners configurados');
-            
-            // Cargar datos
             await this.loadData();
-            console.log('Datos cargados');
-            
-            // Crear gráficas
             this.createCharts();
-            console.log('Gráficas creadas');
-            
-            // Crear mapa
-            this.createMap();
-            console.log('Mapa creado');
-            
-            // Cargar datos del GeoJSON
-            await this.loadGeoJSON();
-            console.log('GeoJSON cargado');
-            
-            // Poblar filtros y actualizar
             this.populateFilters();
             this.updateStats();
             this.updateCharts();
-            this.updateMap();
             
             console.log('Dashboard inicializado completamente');
+            console.log('Estado final - this.data.length:', this.data.length);
+            console.log('Estado final - this.filteredData.length:', this.filteredData.length);
         } catch (error) {
             console.error('Error durante la inicialización:', error);
-            this.showError('Error inicializando el dashboard: ' + error.message);
         }
     }
 
     async loadData() {
         try {
-            console.log('Iniciando carga de datos...');
-            // Intentar cargar el archivo principal primero
+            console.log('Cargando datos principales del CSV...');
+            console.log('Intentando cargar: 20250903_CarrilPreferencial_final.csv');
+            
             const response = await fetch('20250903_CarrilPreferencial_final.csv');
+            console.log('Respuesta del fetch:', response.status, response.statusText);
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+            
             const csvText = await response.text();
-            console.log('CSV cargado, tamaño:', csvText.length, 'caracteres');
+            console.log('CSV cargado, longitud:', csvText.length);
+            console.log('Primeras 200 caracteres:', csvText.substring(0, 200));
             
             this.data = this.parseCSV(csvText);
-            if (!this.data || this.data.length === 0) {
-                throw new Error('Los datos del CSV están vacíos o son inválidos');
+            console.log(`Datos parseados: ${this.data.length} registros`);
+            
+            if (this.data.length > 0) {
+                console.log('Primer registro:', this.data[0]);
             }
             
             this.filteredData = [...this.data];
-            console.log(`Datos cargados: ${this.data.length} registros`);
-            console.log('Primeros 3 registros:', this.data.slice(0, 3));
-            
-            console.log('Datos principales cargados exitosamente');
+            console.log(`✅ Datos CSV cargados exitosamente: ${this.data.length} registros`);
         } catch (error) {
-            console.error('Error cargando datos principales:', error);
-            console.log('Intentando cargar datos de prueba...');
-            // Si falla, cargar datos de prueba
-            await this.loadTestData();
+            console.error('❌ Error cargando datos principales:', error);
+            console.log('🔄 Usando datos de muestra como respaldo...');
+            this.loadSampleData();
         }
     }
 
-    async loadTestData() {
+    loadSampleData() {
         try {
-            console.log('Cargando datos de prueba...');
-            const response = await fetch('test_data.csv');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const csvText = await response.text();
-            console.log('Datos de prueba cargados, tamaño:', csvText.length, 'caracteres');
-            this.data = this.parseCSV(csvText);
-            this.filteredData = [...this.data];
-            console.log(`Datos de prueba cargados: ${this.data.length} registros`);
-            console.log('Primeros 3 registros:', this.data.slice(0, 3));
+            console.log('=== INICIO: Cargando datos de muestra ===');
+            console.log('window.SAMPLE_DATA existe:', !!window.SAMPLE_DATA);
+            console.log('window.SAMPLE_DATA.length:', window.SAMPLE_DATA ? window.SAMPLE_DATA.length : 'undefined');
             
-            // Actualizar interfaz solo si los datos se cargaron correctamente
-            if (this.data && this.data.length > 0) {
-                this.populateFilters();
-                this.updateStats();
-                this.updateCharts();
-                this.updateMap();
-                
-                this.showMessage('Datos de prueba cargados correctamente. Usa los filtros para ver las gráficas.');
+            if (window.SAMPLE_DATA && window.SAMPLE_DATA.length > 0) {
+                this.data = [...window.SAMPLE_DATA];
+                this.filteredData = [...this.data];
+                console.log(`✅ Datos de muestra cargados exitosamente: ${this.data.length} registros`);
+                console.log('📊 Primer registro:', this.data[0]);
+                console.log('📊 Último registro:', this.data[this.data.length - 1]);
+                console.log('📊 Carriles disponibles:', [...new Set(this.data.map(item => item.carril))]);
+                console.log('📊 Tipos de día disponibles:', [...new Set(this.data.map(item => item.tipoDia))]);
+                console.log('📊 Sentidos disponibles:', [...new Set(this.data.map(item => item.sentido))]);
+                console.log('=== FIN: Datos de muestra cargados ===');
             } else {
-                throw new Error('Los datos de prueba están vacíos o son inválidos');
+                console.error('❌ No se encontraron datos de muestra');
+                console.error('window.SAMPLE_DATA:', window.SAMPLE_DATA);
+                this.data = [];
+                this.filteredData = [];
             }
         } catch (error) {
-            console.error('Error cargando datos de prueba:', error);
-            this.showError('Error cargando los datos de prueba: ' + error.message);
+            console.error('❌ Error cargando datos de muestra:', error);
+            this.data = [];
+            this.filteredData = [];
         }
     }
 
     parseCSV(csvText) {
+        console.log('=== INICIO: Parseando CSV ===');
+        console.log('Texto CSV recibido, longitud:', csvText.length);
+        
         const lines = csvText.trim().split('\n');
-        console.log('Total de líneas en CSV:', lines.length);
-        console.log('Headers:', lines[0]);
+        console.log('Total de líneas en el CSV:', lines.length);
         
-        // Filtrar líneas vacías
+        if (lines.length === 0) {
+            console.error('❌ CSV vacío o sin líneas');
+            return [];
+        }
+        
+        // Mostrar encabezados
+        const headers = lines[0].split(',');
+        console.log('📋 Encabezados del CSV:', headers);
+        console.log('📋 Número de columnas:', headers.length);
+        
         const dataLines = lines.slice(1).filter(line => line.trim() !== '');
-        console.log('Líneas de datos a procesar:', dataLines.length);
+        console.log('📊 Líneas de datos (sin encabezado):', dataLines.length);
         
-        return dataLines.map((line, index) => {
+        if (dataLines.length === 0) {
+            console.error('❌ No hay líneas de datos en el CSV');
+            return [];
+        }
+        
+        // Mostrar primeras líneas para debug
+        if (dataLines.length > 0) {
+            console.log('📋 Primera línea de datos:', dataLines[0]);
+            console.log('📋 Valores de la primera línea:', dataLines[0].split(','));
+        }
+        
+        let processedCount = 0;
+        let errorCount = 0;
+        
+        const parsedData = dataLines.map((line, index) => {
             try {
                 const values = line.split(',');
+                
+                // Solo mostrar logs para las primeras 5 líneas para no saturar la consola
+                if (index < 5) {
+                    console.log(`📊 Línea ${index + 1}: ${values.length} valores`);
+                }
+                
                 if (values.length < 11) {
-                    console.warn(`Línea ${index + 1} tiene menos de 11 valores:`, values);
+                    if (index < 10) { // Solo mostrar primeros 10 errores
+                        console.log(`⚠️ Línea ${index + 1} tiene menos de 11 valores:`, values.length);
+                    }
+                    errorCount++;
                     return null;
                 }
                 
                 const congestion = parseFloat(values[10]);
                 if (isNaN(congestion)) {
-                    console.warn(`Línea ${index + 1} tiene congestión inválida:`, values[10]);
+                    if (index < 10) { // Solo mostrar primeros 10 errores
+                        console.log(`⚠️ Línea ${index + 1} tiene congestión inválida:`, values[10]);
+                    }
+                    errorCount++;
                     return null;
                 }
                 
-                return {
-                    fecha: values[0],
-                    hora: values[1],
-                    semana: values[2],
-                    dia: values[3],
-                    mes: values[4],
-                    tipoDia: values[5],
-                    carril: values[6],
-                    sentido: values[7],
-                    desde: values[8],
-                    hasta: values[9],
-                    congestion: congestion
+                const item = {
+                    fecha: values[0],           // date
+                    hora: values[1],            // hour
+                    semana: values[2],          // semana_del_año
+                    dia: values[3],             // nombre_dia
+                    mes: values[4],             // Mes
+                    tipoDia: values[5],         // Día_tipo
+                    carril: values[6],          // Name
+                    sentido: values[7],         // sentido
+                    desde: values[8],           // desde
+                    hasta: values[9],           // hasta
+                    congestion: congestion      // Congestión
                 };
+                
+                if (index < 3) {
+                    console.log(`✅ Item ${index + 1} parseado:`, item);
+                }
+                
+                processedCount++;
+                return item;
             } catch (error) {
-                console.error(`Error procesando línea ${index + 1}:`, error, line);
+                if (index < 10) { // Solo mostrar primeros 10 errores
+                    console.error(`❌ Error procesando línea ${index + 1}:`, error);
+                }
+                errorCount++;
                 return null;
             }
         }).filter(item => item !== null);
+        
+        console.log('=== RESUMEN DEL PARSEO ===');
+        console.log(`✅ Líneas procesadas exitosamente: ${processedCount}`);
+        console.log(`❌ Líneas con errores: ${errorCount}`);
+        console.log(`📊 Total de items válidos: ${parsedData.length}`);
+        console.log('=== FIN: CSV parseado ===');
+        
+        return parsedData;
     }
 
     setupEventListeners() {
-        // Filtros
         document.getElementById('yearFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dateFromFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dateToFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dayFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('dayTypeFilter').addEventListener('change', () => this.applyFilters());
         
-        // Filtro de corredor con manejo especial para filtros dependientes
         document.getElementById('carrilFilter').addEventListener('change', () => {
-            console.log('Corredor cambiado, actualizando filtros dependientes...');
             this.updateDependentFilters();
             this.applyFilters();
         });
@@ -171,33 +205,32 @@ class CarrilPreferencialDashboard {
         document.getElementById('sentidoFilter').addEventListener('change', () => this.applyFilters());
         document.getElementById('hourFilter').addEventListener('change', () => this.applyFilters());
         
-        // Botón reset
         document.getElementById('resetFilters').addEventListener('click', () => this.resetFilters());
+        document.getElementById('reloadCSV').addEventListener('click', () => this.reloadCSVData());
     }
 
     populateFilters() {
-        // Verificar que los datos estén disponibles
+        console.log('=== INICIO: Poblando filtros ===');
+        console.log('this.data existe:', !!this.data);
+        console.log('this.data.length:', this.data ? this.data.length : 'undefined');
+        
         if (!this.data || this.data.length === 0) {
-            console.warn('No hay datos disponibles para poblar los filtros');
+            console.log('❌ No hay datos para poblar filtros');
             return;
         }
 
-        console.log('Poblando filtros con', this.data.length, 'registros');
-
-        // Limpiar filtros existentes primero
+        console.log('✅ Poblando filtros con', this.data.length, 'registros');
         this.clearFilters();
 
-        // Poblar filtro de años
+        // Años
         const years = [...new Set(this.data.map(item => {
             try {
                 return new Date(item.fecha).getFullYear();
             } catch (error) {
-                console.warn('Error procesando fecha:', item.fecha, error);
                 return null;
             }
         }))].filter(year => year !== null).sort();
         
-        console.log('Años encontrados:', years);
         const yearFilter = document.getElementById('yearFilter');
         years.forEach(year => {
             const option = document.createElement('option');
@@ -206,9 +239,8 @@ class CarrilPreferencialDashboard {
             yearFilter.appendChild(option);
         });
 
-        // Poblar filtro de carriles
+        // Carriles
         const carriles = [...new Set(this.data.map(item => item.carril))].filter(c => c && c.trim() !== '').sort();
-        console.log('Carriles encontrados:', carriles);
         const carrilFilter = document.getElementById('carrilFilter');
         carriles.forEach(carril => {
             const option = document.createElement('option');
@@ -217,9 +249,8 @@ class CarrilPreferencialDashboard {
             carrilFilter.appendChild(option);
         });
 
-        // Poblar filtro de puntos desde
+        // Puntos desde
         const desdePuntos = [...new Set(this.data.map(item => item.desde))].filter(d => d && d.trim() !== '').sort();
-        console.log('Puntos desde encontrados:', desdePuntos);
         const desdeFilter = document.getElementById('desdeFilter');
         desdePuntos.forEach(punto => {
             const option = document.createElement('option');
@@ -228,9 +259,8 @@ class CarrilPreferencialDashboard {
             desdeFilter.appendChild(option);
         });
 
-        // Poblar filtro de puntos hasta
+        // Puntos hasta
         const hastaPuntos = [...new Set(this.data.map(item => item.hasta))].filter(h => h && h.trim() !== '').sort();
-        console.log('Puntos hasta encontrados:', hastaPuntos);
         const hastaFilter = document.getElementById('hastaFilter');
         hastaPuntos.forEach(punto => {
             const option = document.createElement('option');
@@ -239,9 +269,8 @@ class CarrilPreferencialDashboard {
             hastaFilter.appendChild(option);
         });
 
-        // Poblar filtro de sentidos
+        // Sentidos
         const sentidos = [...new Set(this.data.map(item => item.sentido))].filter(s => s && s.trim() !== '').sort();
-        console.log('Sentidos encontrados:', sentidos);
         const sentidoFilter = document.getElementById('sentidoFilter');
         sentidos.forEach(sentido => {
             const option = document.createElement('option');
@@ -249,37 +278,31 @@ class CarrilPreferencialDashboard {
             option.textContent = sentido;
             sentidoFilter.appendChild(option);
         });
-
-        console.log('Filtros poblados correctamente');
+        
+        console.log('✅ Filtros poblados exitosamente:');
+        console.log('   - Años:', years);
+        console.log('   - Carriles:', carriles);
+        console.log('   - Desde:', desdePuntos);
+        console.log('   - Hasta:', hastaPuntos);
+        console.log('   - Sentidos:', sentidos);
+        console.log('=== FIN: Filtros poblados ===');
     }
 
     updateDependentFilters() {
-        console.log('Actualizando filtros dependientes...');
-        
-        // Obtener el corredor seleccionado
         const carrilSeleccionado = document.getElementById('carrilFilter').value;
         
         if (carrilSeleccionado) {
-            // Filtrar datos solo para el corredor seleccionado
             const datosCarril = this.data.filter(item => item.carril === carrilSeleccionado);
-            console.log(`Datos para corredor ${carrilSeleccionado}:`, datosCarril.length);
             
-            // Actualizar filtro de puntos desde
             const desdePuntos = [...new Set(datosCarril.map(item => item.desde))].filter(d => d && d.trim() !== '').sort();
-            console.log('Puntos desde para este corredor:', desdePuntos);
             this.updateFilterOptions('desdeFilter', desdePuntos, 'Todos los puntos');
             
-            // Actualizar filtro de puntos hasta
             const hastaPuntos = [...new Set(datosCarril.map(item => item.hasta))].filter(h => h && h.trim() !== '').sort();
-            console.log('Puntos hasta para este corredor:', hastaPuntos);
             this.updateFilterOptions('hastaFilter', hastaPuntos, 'Todos los puntos');
             
-            // Actualizar filtro de sentido
             const sentidos = [...new Set(datosCarril.map(item => item.sentido))].filter(s => s && s.trim() !== '').sort();
-            console.log('Sentidos para este corredor:', sentidos);
             this.updateFilterOptions('sentidoFilter', sentidos, 'Todos los sentidos');
         } else {
-            // Si no hay corredor seleccionado, mostrar todas las opciones
             this.populateFilters();
         }
     }
@@ -288,13 +311,9 @@ class CarrilPreferencialDashboard {
         const filter = document.getElementById(filterId);
         if (!filter) return;
         
-        // Guardar el valor actual si existe
         const currentValue = filter.value;
-        
-        // Limpiar opciones
         filter.innerHTML = `<option value="">${defaultText}</option>`;
         
-        // Agregar nuevas opciones
         options.forEach(option => {
             const optionElement = document.createElement('option');
             optionElement.value = option;
@@ -302,41 +321,20 @@ class CarrilPreferencialDashboard {
             filter.appendChild(optionElement);
         });
         
-        // Restaurar valor si aún existe en las nuevas opciones
         if (currentValue && options.includes(currentValue)) {
             filter.value = currentValue;
         }
-        
-        console.log(`Filtro ${filterId} actualizado con ${options.length} opciones`);
     }
 
     clearFilters() {
-        // Limpiar filtro de años
-        const yearFilter = document.getElementById('yearFilter');
-        yearFilter.innerHTML = '<option value="">Todos los años</option>';
-        
-        // Limpiar filtro de carriles
-        const carrilFilter = document.getElementById('carrilFilter');
-        carrilFilter.innerHTML = '<option value="">Todos los carriles</option>';
-        
-        // Limpiar filtro de puntos desde
-        const desdeFilter = document.getElementById('desdeFilter');
-        desdeFilter.innerHTML = '<option value="">Todos los puntos</option>';
-        
-        // Limpiar filtro de puntos hasta
-        const hastaFilter = document.getElementById('hastaFilter');
-        hastaFilter.innerHTML = '<option value="">Todos los puntos</option>';
-        
-        // Limpiar filtro de sentidos
-        const sentidoFilter = document.getElementById('sentidoFilter');
-        sentidoFilter.innerHTML = '<option value="">Todos los sentidos</option>';
-        
-        console.log('Filtros limpiados');
+        document.getElementById('yearFilter').innerHTML = '<option value="">Todos los años</option>';
+        document.getElementById('carrilFilter').innerHTML = '<option value="">Todos los carriles</option>';
+        document.getElementById('desdeFilter').innerHTML = '<option value="">Todos los puntos</option>';
+        document.getElementById('hastaFilter').innerHTML = '<option value="">Todos los puntos</option>';
+        document.getElementById('sentidoFilter').innerHTML = '<option value="">Todos los sentidos</option>';
     }
 
     applyFilters() {
-        console.log('Aplicando filtros...');
-        
         const yearFilter = document.getElementById('yearFilter').value;
         const dateFromFilter = document.getElementById('dateFromFilter').value;
         const dateToFilter = document.getElementById('dateToFilter').value;
@@ -347,11 +345,6 @@ class CarrilPreferencialDashboard {
         const hastaFilter = document.getElementById('hastaFilter').value;
         const sentidoFilter = document.getElementById('sentidoFilter').value;
         const hourFilter = document.getElementById('hourFilter').value;
-
-        console.log('Valores de filtros:', {
-            yearFilter, dateFromFilter, dateToFilter, dayFilter, dayTypeFilter,
-            carrilFilter, desdeFilter, hastaFilter, sentidoFilter, hourFilter
-        });
 
         this.filteredData = this.data.filter(item => {
             try {
@@ -369,24 +362,16 @@ class CarrilPreferencialDashboard {
                 return yearMatch && dateFromMatch && dateToMatch && dayMatch && dayTypeMatch && 
                        carrilMatch && desdeMatch && hastaMatch && sentidoMatch && hourMatch;
             } catch (error) {
-                console.error('Error aplicando filtro a item:', item, error);
                 return false;
             }
         });
 
-        console.log(`Datos filtrados: ${this.filteredData.length} de ${this.data.length}`);
-        
-        // Actualizar filtros dependientes
         this.updateDependentFilters();
-        
         this.updateStats();
         this.updateCharts();
-        this.updateMap();
     }
 
     resetFilters() {
-        console.log('Reseteando todos los filtros...');
-        
         document.getElementById('yearFilter').value = '';
         document.getElementById('dateFromFilter').value = '';
         document.getElementById('dateToFilter').value = '';
@@ -398,114 +383,41 @@ class CarrilPreferencialDashboard {
         document.getElementById('sentidoFilter').value = '';
         document.getElementById('hourFilter').value = '';
         
-        // Restaurar todos los filtros con todas las opciones
         this.populateFilters();
-        
         this.filteredData = [...this.data];
-        console.log('Filtros reseteados, datos restaurados:', this.filteredData.length);
-        
         this.updateStats();
         this.updateCharts();
-        this.updateMap();
+    }
+
+    async reloadCSVData() {
+        console.log('🔄 Recargando datos del CSV...');
+        try {
+            await this.loadData();
+            this.populateFilters();
+            this.updateStats();
+            this.updateCharts();
+            console.log('✅ CSV recargado exitosamente');
+        } catch (error) {
+            console.error('❌ Error recargando CSV:', error);
+        }
     }
 
     updateStats() {
-        // Verificar que los datos estén disponibles
-        if (!this.filteredData || this.filteredData.length === 0) {
-            console.warn('No hay datos filtrados para actualizar estadísticas');
-            return;
-        }
-
-        // Las estadísticas ahora se muestran en el histograma
-        // Solo actualizamos las gráficas
+        if (!this.filteredData || this.filteredData.length === 0) return;
         console.log('Estadísticas actualizadas en el histograma con', this.filteredData.length, 'registros');
     }
 
     createCharts() {
-        console.log('Creando gráficas...');
-        
         try {
             this.createTimeSeriesChart();
             this.createHourlyProfileChart();
             this.createHistogramChart();
-            console.log('Todas las gráficas creadas correctamente');
         } catch (error) {
             console.error('Error creando gráficas:', error);
         }
     }
 
-    createMap() {
-        console.log('Creando mapa...');
-        
-        try {
-            // Crear mapa centrado en Bogotá
-            this.map = L.map('map').setView([4.7110, -74.0721], 12);
-            
-            // Agregar capa base de OpenStreetMap
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 18
-            }).addTo(this.map);
 
-            // Agregar capa de satélite como opción
-            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '© Esri',
-                maxZoom: 18
-            });
-
-            // Control de capas base
-            const baseMaps = {
-                "Mapa": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
-                "Satélite": satelliteLayer
-            };
-
-            L.control.layers(baseMaps).addTo(this.map);
-
-            // Crear grupos de capas para diferentes direcciones
-            this.mapLayers.ns = L.layerGroup();
-            this.mapLayers.ew = L.layerGroup();
-            this.mapLayers.mixed = L.layerGroup();
-
-            // Agregar capas al mapa
-            this.mapLayers.ns.addTo(this.map);
-            this.mapLayers.ew.addTo(this.map);
-            this.mapLayers.mixed.addTo(this.map);
-
-                    console.log('Mapa creado exitosamente');
-    } catch (error) {
-        console.error('Error creando mapa:', error);
-    }
-}
-
-async loadGeoJSON() {
-    try {
-        console.log('Cargando datos del GeoJSON...');
-        const response = await fetch('carriles_preferenciales.geojson');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        this.geojsonData = await response.json();
-        console.log(`GeoJSON cargado exitosamente: ${this.geojsonData.features.length} features`);
-        
-        // Mostrar información de los primeros features
-        if (this.geojsonData.features.length > 0) {
-            const firstFeature = this.geojsonData.features[0];
-            console.log('Primer feature:', {
-                name: firstFeature.properties.Name,
-                sentido: firstFeature.properties.sentido,
-                desde: firstFeature.properties.desde,
-                hasta: firstFeature.properties.hasta,
-                coordinates: firstFeature.geometry.coordinates.length
-            });
-        }
-        
-    } catch (error) {
-        console.error('Error cargando GeoJSON:', error);
-        console.log('El mapa usará coordenadas simuladas');
-        this.geojsonData = null;
-    }
-}
 
     createTimeSeriesChart() {
         const ctx = document.getElementById('timeSeriesChart').getContext('2d');
@@ -519,45 +431,19 @@ async loadGeoJSON() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: {
-                        top: 10,
-                        bottom: 10
-                    }
-                },
                 plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            boxWidth: 12,
-                            padding: 10
-                        }
-                    },
+                    legend: { position: 'top' },
                     title: {
                         display: true,
-                        text: 'Evolución de la Congestión por Mes y Año',
-                        font: {
-                            size: 14
-                        }
+                        text: 'Evolución de la Congestión por Mes y Año'
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Congestión Promedio'
-                        },
-                        ticks: {
-                            maxTicksLimit: 8
-                        }
+                        title: { display: true, text: 'Congestión Promedio' }
                     },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Mes'
-                        }
-                    }
+                    x: { title: { display: true, text: 'Mes' } }
                 }
             }
         });
@@ -576,154 +462,69 @@ async loadGeoJSON() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: {
-                        top: 10,
-                        bottom: 10
-                    }
-                },
                 plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            boxWidth: 12,
-                            padding: 10
-                        }
-                    },
+                    legend: { position: 'top' },
                     title: {
                         display: true,
-                        text: 'Perfil Horario de Congestión por Tipo de Día',
-                        font: {
-                            size: 14
-                        }
+                        text: 'Perfil Horario de Congestión por Tipo de Día'
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Congestión Promedio'
-                        },
-                        ticks: {
-                            maxTicksLimit: 8
-                        }
+                        title: { display: true, text: 'Congestión Promedio' }
                     },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Hora del Día'
-                        }
-                    }
+                    x: { title: { display: true, text: 'Hora del Día' } }
                 }
             }
         });
     }
 
     createHistogramChart() {
-        console.log('Creando histograma...');
         const canvas = document.getElementById('histogramChart');
-        if (!canvas) {
-            console.error('No se encontró el canvas del histograma');
-            return;
-        }
+        if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
-        console.log('Contexto del canvas obtenido:', ctx);
-        
         this.charts.histogram = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: [],
-                datasets: []
-            },
+            data: { labels: [], datasets: [] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: {
-                        top: 20,
-                        bottom: 20
-                    }
-                },
                 plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
+                    legend: { display: true, position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Frecuencia',
-                            font: {
-                                weight: 'bold'
-                            }
-                        },
-                        ticks: {
-                            maxTicksLimit: 8
-                        }
+                        title: { display: true, text: 'Frecuencia' }
                     },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Rango de Congestión',
-                            font: {
-                                weight: 'bold'
-                            }
-                        }
-                    }
-                },
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
+                    x: { title: { display: true, text: 'Rango de Congestión' } }
                 }
             }
         });
-        
-        console.log('Histograma creado:', this.charts.histogram);
     }
 
     updateCharts() {
-        // Verificar que los datos estén disponibles
-        if (!this.filteredData || this.filteredData.length === 0) {
-            console.warn('No hay datos filtrados para actualizar las gráficas');
-            return;
-        }
-
-        console.log('Actualizando gráficas con', this.filteredData.length, 'registros filtrados');
+        if (!this.filteredData || this.filteredData.length === 0) return;
         
         try {
             this.updateTimeSeriesChart();
             this.updateHourlyProfileChart();
             this.updateHistogramChart();
-            console.log('Todas las gráficas actualizadas correctamente');
         } catch (error) {
             console.error('Error actualizando gráficas:', error);
         }
     }
 
     updateTimeSeriesChart() {
-        console.log('Actualizando gráfica de serie de tiempo con', this.filteredData.length, 'registros');
-        
-        // Agrupar datos por año, mes y calcular promedio de congestión
         const monthlyData = {};
         
         this.filteredData.forEach(item => {
             try {
                 const year = new Date(item.fecha).getFullYear();
-                const month = new Date(item.fecha).getMonth(); // 0-11
+                const month = new Date(item.fecha).getMonth();
                 
                 if (!monthlyData[year]) {
                     monthlyData[year] = Array(12).fill(0).map(() => ({ sum: 0, count: 0 }));
@@ -735,10 +536,7 @@ async loadGeoJSON() {
                 console.error('Error procesando item para gráfica de tiempo:', item, error);
             }
         });
-        
-        console.log('Datos mensuales agrupados:', monthlyData);
 
-        // Crear datasets para cada año
         const datasets = [];
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
         let colorIndex = 0;
@@ -765,9 +563,6 @@ async loadGeoJSON() {
     }
 
     updateHourlyProfileChart() {
-        console.log('Actualizando gráfica de perfil horario con', this.filteredData.length, 'registros');
-        
-        // Agrupar datos por tipo de día, hora y calcular promedio de congestión
         const hourlyData = {};
         const tiposDia = ['Hábil', 'Festivo', 'Sábado'];
         
@@ -788,10 +583,7 @@ async loadGeoJSON() {
                 console.error('Error procesando item para gráfica horaria:', item, error);
             }
         });
-        
-        console.log('Datos horarios agrupados:', hourlyData);
 
-        // Crear datasets para cada tipo de día
         const datasets = [];
         const colors = ['#FF6384', '#36A2EB', '#FFCE56'];
         
@@ -814,20 +606,11 @@ async loadGeoJSON() {
     }
 
     updateHistogramChart() {
-        console.log('Actualizando histograma...');
-        if (!this.charts.histogram) {
-            console.error('No se encontró el chart del histograma');
-            return;
-        }
+        if (!this.charts.histogram) return;
         
         const congestionValues = this.filteredData.map(item => item.congestion);
-        console.log('Valores de congestión para histograma:', congestionValues.length);
-        if (congestionValues.length === 0) {
-            console.warn('No hay datos para mostrar en el histograma');
-            return;
-        }
+        if (congestionValues.length === 0) return;
 
-        // Calcular estadísticas descriptivas
         const sortedValues = congestionValues.sort((a, b) => a - b);
         const average = sortedValues.reduce((sum, val) => sum + val, 0) / congestionValues.length;
         const median = this.calculatePercentile(sortedValues, 50);
@@ -836,14 +619,12 @@ async loadGeoJSON() {
         const percentile5 = this.calculatePercentile(sortedValues, 5);
         const percentile95 = this.calculatePercentile(sortedValues, 95);
 
-        // Calcular rangos para el histograma
         const min = Math.min(...congestionValues);
         const max = Math.max(...congestionValues);
         const range = max - min;
-        const binCount = 20; // Más barras para mejor resolución
+        const binCount = 20;
         const binSize = range / binCount;
 
-        // Crear bins
         const bins = Array(binCount).fill(0);
         const labels = [];
 
@@ -853,13 +634,11 @@ async loadGeoJSON() {
             labels.push(`${Math.round(binStart)}-${Math.round(binEnd)}`);
         }
 
-        // Contar valores en cada bin
         congestionValues.forEach(value => {
             const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1);
             bins[binIndex]++;
         });
 
-        // Crear dataset principal para el histograma
         const datasets = [
             {
                 label: 'Frecuencia',
@@ -870,101 +649,38 @@ async loadGeoJSON() {
             }
         ];
 
-        // Agregar líneas verticales para las estadísticas descriptivas
         const maxFreq = Math.max(...bins);
-        
-        // Encontrar el índice del bin más cercano para cada estadística
         const findBinIndex = (value) => {
             return Math.min(Math.floor((value - min) / binSize), binCount - 1);
         };
 
-        // Línea para el Promedio
-        const avgBinIndex = findBinIndex(average);
-        datasets.push({
-            label: `Promedio: ${average.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === avgBinIndex ? maxFreq : null),
-            borderColor: '#FF6384',
-            backgroundColor: 'transparent',
-            borderWidth: 3,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
+        // Agregar líneas para estadísticas
+        const stats = [
+            { value: average, label: `Promedio: ${average.toFixed(1)}`, color: '#FF6384' },
+            { value: median, label: `Mediana: ${median.toFixed(1)}`, color: '#36A2EB' },
+            { value: percentile75, label: `Percentil 75: ${percentile75.toFixed(1)}`, color: '#FFCE56' },
+            { value: percentile25, label: `Percentil 25: ${percentile25.toFixed(1)}`, color: '#4BC0C0' },
+            { value: percentile95, label: `Percentil 95: ${percentile95.toFixed(1)}`, color: '#9966FF' },
+            { value: percentile5, label: `Percentil 5: ${percentile5.toFixed(1)}`, color: '#FF9F40' }
+        ];
+
+        stats.forEach(stat => {
+            const binIndex = findBinIndex(stat.value);
+            datasets.push({
+                label: stat.label,
+                data: Array(binCount).fill(null).map((_, i) => i === binIndex ? maxFreq : null),
+                borderColor: stat.color,
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                pointRadius: 0,
+                type: 'line',
+                fill: false
+            });
         });
 
-        // Línea para la Mediana
-        const medianBinIndex = findBinIndex(median);
-        datasets.push({
-            label: `Mediana: ${median.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === medianBinIndex ? maxFreq : null),
-            borderColor: '#36A2EB',
-            backgroundColor: 'transparent',
-            borderWidth: 3,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
-        });
-
-        // Línea para el Percentil 75
-        const p75BinIndex = findBinIndex(percentile75);
-        datasets.push({
-            label: `Percentil 75: ${percentile75.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === p75BinIndex ? maxFreq : null),
-            borderColor: '#FFCE56',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
-        });
-
-        // Línea para el Percentil 25
-        const p25BinIndex = findBinIndex(percentile25);
-        datasets.push({
-            label: `Percentil 25: ${percentile25.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === p25BinIndex ? maxFreq : null),
-            borderColor: '#4BC0C0',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
-        });
-
-        // Línea para el Percentil 95
-        const p95BinIndex = findBinIndex(percentile95);
-        datasets.push({
-            label: `Percentil 95: ${percentile95.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === p95BinIndex ? maxFreq : null),
-            borderColor: '#9966FF',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
-        });
-
-        // Línea para el Percentil 5
-        const p5BinIndex = findBinIndex(percentile5);
-        datasets.push({
-            label: `Percentil 5: ${percentile5.toFixed(1)}`,
-            data: Array(binCount).fill(null).map((_, i) => i === p5BinIndex ? maxFreq : null),
-            borderColor: '#FF9F40',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            type: 'line',
-            fill: false
-        });
-
-        // Actualizar gráfica
-        console.log('Labels del histograma:', labels);
-        console.log('Datasets del histograma:', datasets);
-        
         this.charts.histogram.data.labels = labels;
         this.charts.histogram.data.datasets = datasets;
         this.charts.histogram.update();
-        
-        console.log('Histograma actualizado correctamente');
     }
 
     calculatePercentile(sortedArray, percentile) {
@@ -979,265 +695,9 @@ async loadGeoJSON() {
         }
     }
 
-    updateMap() {
-        if (!this.map || !this.filteredData || this.filteredData.length === 0) {
-            console.log('No hay datos para actualizar el mapa');
-            return;
-        }
 
-        console.log('Actualizando mapa con', this.filteredData.length, 'registros filtrados');
-
-        // Limpiar capas existentes
-        Object.values(this.mapLayers).forEach(layer => {
-            layer.clearLayers();
-        });
-
-        // Crear segmentos del mapa basados en los datos filtrados
-        this.createMapSegments();
-
-        // Actualizar información del mapa
-        this.updateMapInfo();
-    }
-
-    createMapSegments() {
-        // Si no tenemos datos del GeoJSON, usar el método anterior
-        if (!this.geojsonData || !this.geojsonData.features) {
-            this.createMapSegmentsFromCSV();
-            return;
-        }
-
-        console.log('Creando segmentos del mapa desde GeoJSON real...');
-        
-        // Agrupar datos por carril y dirección
-        const segmentsByCorridor = {};
-        
-        this.filteredData.forEach(item => {
-            const key = `${item.carril}_${item.sentido}`;
-            if (!segmentsByCorridor[key]) {
-                segmentsByCorridor[key] = {
-                    carril: item.carril,
-                    sentido: item.sentido,
-                    desde: item.desde,
-                    hasta: item.hasta,
-                    count: 0,
-                    avgCongestion: 0,
-                    totalCongestion: 0
-                };
-            }
-            segmentsByCorridor[key].count++;
-            segmentsByCorridor[key].totalCongestion += item.congestion;
-        });
-
-        // Buscar en el GeoJSON los segmentos que coincidan con los datos filtrados
-        this.geojsonData.features.forEach(feature => {
-            const props = feature.properties;
-            const key = `${props.Name}_${props.sentido}`;
-            
-            // Buscar si este segmento del GeoJSON coincide con algún dato filtrado
-            const matchingSegment = Object.values(segmentsByCorridor).find(segment => 
-                segment.carril === props.Name && segment.sentido === props.sentido
-            );
-            
-            if (matchingSegment) {
-                // Usar las coordenadas reales del GeoJSON
-                const coordinates = feature.geometry.coordinates.map(coord => [coord[1], coord[0]]); // [lat, lng]
-                
-                // Determinar dirección para el color
-                let direction = 'mixed';
-                if (props.sentido === 'NS') direction = 'ns';
-                else if (props.sentido === 'EW') direction = 'ew';
-
-                // Crear línea en el mapa
-                const polyline = L.polyline(coordinates, {
-                    color: this.getSegmentColor(direction),
-                    weight: 6,
-                    opacity: 0.8
-                });
-
-                // Agregar popup con información
-                const popup = this.createSegmentPopup({
-                    ...matchingSegment,
-                    desde: props.desde,
-                    hasta: props.hasta,
-                    length: props.Shape_Leng
-                });
-                polyline.bindPopup(popup);
-
-                // Agregar a la capa correspondiente
-                this.mapLayers[direction].addLayer(polyline);
-            }
-        });
-    }
-
-    createMapSegmentsFromCSV() {
-        // Método anterior para cuando no hay GeoJSON
-        console.log('Usando coordenadas simuladas (no hay GeoJSON)...');
-        
-        // Agrupar datos por carril y dirección
-        const segmentsByCorridor = {};
-        
-        this.filteredData.forEach(item => {
-            const key = `${item.carril}_${item.sentido}`;
-            if (!segmentsByCorridor[key]) {
-                segmentsByCorridor[key] = {
-                    carril: item.carril,
-                    sentido: item.sentido,
-                    desde: item.desde,
-                    hasta: item.hasta,
-                    count: 0,
-                    avgCongestion: 0,
-                    totalCongestion: 0
-                };
-            }
-            segmentsByCorridor[key].count++;
-            segmentsByCorridor[key].totalCongestion += item.congestion;
-        });
-
-        // Calcular promedios y crear segmentos
-        Object.values(segmentsByCorridor).forEach(segment => {
-            segment.avgCongestion = segment.totalCongestion / segment.count;
-            
-            // Crear coordenadas simuladas basadas en el carril
-            const coordinates = this.generateSegmentCoordinates(segment);
-            
-            // Determinar dirección para el color
-            let direction = 'mixed';
-            if (segment.sentido === 'NS') direction = 'ns';
-            else if (segment.sentido === 'EW') direction = 'ew';
-
-            // Crear línea en el mapa
-            const polyline = L.polyline(coordinates, {
-                color: this.getSegmentColor(direction),
-                weight: 6,
-                opacity: 0.8
-            });
-
-            // Agregar popup con información
-            const popup = this.createSegmentPopup(segment);
-            polyline.bindPopup(popup);
-
-            // Agregar a la capa correspondiente
-            this.mapLayers[direction].addLayer(polyline);
-        });
-    }
-
-    generateSegmentCoordinates(segment) {
-        // Coordenadas simuladas basadas en el carril
-        // En una implementación real, estas vendrían del shapefile
-        const baseLat = 4.7110;
-        const baseLng = -74.0721;
-        
-        let coordinates = [];
-        
-        if (segment.sentido === 'NS') {
-            // Línea Norte-Sur
-            coordinates = [
-                [baseLat - 0.01, baseLng],
-                [baseLat, baseLng],
-                [baseLat + 0.01, baseLng]
-            ];
-        } else if (segment.sentido === 'EW') {
-            // Línea Este-Oeste
-            coordinates = [
-                [baseLat, baseLng - 0.01],
-                [baseLat, baseLng],
-                [baseLat, baseLng + 0.01]
-            ];
-        } else {
-            // Línea diagonal
-            coordinates = [
-                [baseLat - 0.005, baseLng - 0.005],
-                [baseLat, baseLng],
-                [baseLat + 0.005, baseLng + 0.005]
-            ];
-        }
-
-        return coordinates;
-    }
-
-    getSegmentColor(direction) {
-        switch (direction) {
-            case 'ns': return '#e53e3e'; // Rojo para Norte-Sur
-            case 'ew': return '#3182ce'; // Azul para Este-Oeste
-            default: return '#38a169';   // Verde para mixto
-        }
-    }
-
-    createSegmentPopup(segment) {
-        return `
-            <div style="min-width: 200px;">
-                <h3 style="margin: 0 0 10px 0; color: #2d3748;">${segment.carril}</h3>
-                <p><strong>Sentido:</strong> ${segment.sentido}</p>
-                <p><strong>Desde:</strong> ${segment.desde}</p>
-                <p><strong>Hasta:</strong> ${segment.hasta}</p>
-                <p><strong>Registros:</strong> ${segment.count}</p>
-                <p><strong>Congestión Promedio:</strong> ${segment.avgCongestion.toFixed(1)}</p>
-                ${segment.length ? `<p><strong>Longitud:</strong> ${segment.length.toFixed(3)} km</p>` : ''}
-            </div>
-        `;
-    }
-
-    updateMapInfo() {
-        if (!this.filteredData || this.filteredData.length === 0) return;
-
-        const uniqueCorridors = [...new Set(this.filteredData.map(item => item.carril))];
-        
-        // Calcular longitud total real si tenemos GeoJSON
-        let totalLength = 0;
-        if (this.geojsonData && this.geojsonData.features) {
-            const matchingFeatures = this.geojsonData.features.filter(feature => {
-                const props = feature.properties;
-                return uniqueCorridors.includes(props.Name);
-            });
-            
-            totalLength = matchingFeatures.reduce((sum, feature) => {
-                return sum + (feature.properties.Shape_Leng || 0);
-            }, 0);
-        } else {
-            // Longitud simulada si no hay GeoJSON
-            totalLength = uniqueCorridors.length * 5;
-        }
-
-        document.getElementById('map-segments-count').textContent = this.filteredData.length;
-        document.getElementById('map-total-length').textContent = totalLength.toFixed(3);
-        document.getElementById('map-corridors-count').textContent = uniqueCorridors.length;
-    }
-
-    showError(message) {
-        const container = document.querySelector('.dashboard');
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.innerHTML = `
-            <div style="background: #fed7d7; border: 1px solid #feb2b2; color: #c53030; padding: 20px; border-radius: 10px; text-align: center;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                <br>${message}
-            </div>
-        `;
-        container.appendChild(errorDiv);
-    }
-
-    showMessage(message) {
-        const container = document.querySelector('.dashboard');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'success-message';
-        messageDiv.innerHTML = `
-            <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 10px; text-align: center;">
-                <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                <br>${message}
-            </div>
-        `;
-        container.appendChild(messageDiv);
-        
-        // Remover mensaje después de 5 segundos
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.parentNode.removeChild(messageDiv);
-            }
-        }, 5000);
-    }
 }
 
-// Inicializar el dashboard cuando se cargue la página
 document.addEventListener('DOMContentLoaded', () => {
     new CarrilPreferencialDashboard();
 });
